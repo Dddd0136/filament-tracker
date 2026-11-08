@@ -1,0 +1,5 @@
+# Filament tracker settings (copy to ~/klipper_config/spool_tracker.conf)
+# url = web app address from Apps Script (ends with /exec)
+# token = TOKEN shown by setup() in the Apps Script log
+url = 
+token = 

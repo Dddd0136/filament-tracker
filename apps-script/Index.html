@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<base target="_top">
+<meta name="k" content="<?= key ?>">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Филамент</title>
+<style>
+  :root{
+    --bg:#0f1216; --card:#181d23; --card2:#1f252d; --line:#2a313a;
+    --text:#e9edf1; --muted:#8b96a3; --accent:#4fd1c5; --warn:#f6ad55; --bad:#fc8181;
+    --radius:18px; --ease:cubic-bezier(.2,.8,.2,1);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:560px;margin:0 auto;padding:16px 16px 110px}
+  header{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 14px}
+  h1{font-size:22px;margin:0;letter-spacing:.2px}
+  .sub{color:var(--muted);font-size:13px}
+  .tabs{display:flex;background:var(--card);border-radius:14px;padding:4px;margin-bottom:14px;position:relative}
+  .tabs button{flex:1;border:0;background:none;color:var(--muted);padding:9px;border-radius:10px;font:inherit;font-weight:600;position:relative;z-index:1;transition:color .25s}
+  .tabs button.on{color:var(--text)}
+  .tabs .pill{position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);background:var(--card2);border-radius:10px;transition:transform .35s var(--ease)}
+  .tabs.t2 .pill{transform:translateX(100%)}
+
+  .hero{background:linear-gradient(135deg,var(--card2),var(--card));border-radius:var(--radius);padding:16px;margin-bottom:14px;display:flex;gap:14px;align-items:center;border:1px solid var(--line)}
+  .ring{width:74px;height:74px;flex:none}
+  .ring circle{fill:none;stroke-width:8}
+  .ring .bg{stroke:var(--line)}
+  .ring .fg{stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset 1.1s var(--ease)}
+  .hero b{font-size:20px}
+  .hero .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 14px 12px;margin-bottom:10px;
+    opacity:0;transform:translateY(10px);animation:in .45s var(--ease) forwards;cursor:pointer;transition:transform .15s}
+  .card:active{transform:scale(.985)}
+  @keyframes in{to{opacity:1;transform:none}}
+  .row{display:flex;align-items:center;gap:12px}
+  .dot{width:34px;height:34px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 3px rgba(0,0,0,.25),0 0 0 2px var(--line)}
+  .name{font-weight:650}
+  .meta{color:var(--muted);font-size:12.5px}
+  .grow{flex:1;min-width:0}
+  .grams{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  .grams small{display:block;color:var(--muted);font-weight:500;font-size:11.5px}
+  .bar{height:7px;background:var(--line);border-radius:6px;margin-top:11px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);transition:width 1s var(--ease)}
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:2px;letter-spacing:.3px}
+  .b-act{background:rgba(79,209,197,.15);color:var(--accent)}
+  .b-low{background:rgba(246,173,85,.15);color:var(--warn);animation:pulse 1.6s infinite}
+  @keyframes pulse{50%{opacity:.55}}
+  .empty{color:var(--muted);text-align:center;padding:40px 10px}
+
+  .hist{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 13px;margin-bottom:8px;display:flex;gap:10px;align-items:center;opacity:0;animation:in .35s var(--ease) forwards}
+  .hist .sdot{width:12px;height:12px;border-radius:50%;flex:none}
+  .hist .file{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .st-c{color:var(--warn)} .st-t{color:var(--muted)}
+
+  .fab{position:fixed;right:20px;bottom:calc(22px + env(safe-area-inset-bottom));width:58px;height:58px;border-radius:50%;border:0;background:var(--accent);color:#08201e;font-size:30px;font-weight:300;box-shadow:0 8px 24px rgba(79,209,197,.35);transition:transform .2s var(--ease)}
+  .fab:active{transform:scale(.92)}
+
+  .veil{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .3s}
+  .veil.on{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--card);border-radius:22px 22px 0 0;padding:10px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .38s var(--ease);border-top:1px solid var(--line)}
+  .sheet.on{transform:none}
+  .grip{width:40px;height:4px;background:var(--line);border-radius:4px;margin:0 auto 14px}
+  .sheet h3{margin:0 0 12px;font-size:18px}
+  label{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px}
+  input,select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px;font:inherit;outline:none;transition:border-color .2s}
+  input:focus,select:focus{border-color:var(--accent)}
+  input[type=color]{padding:4px;height:46px}
+  .two{display:flex;gap:10px}.two>div{flex:1}
+  .btn{width:100%;border:0;border-radius:14px;padding:14px;font:inherit;font-weight:700;margin-top:14px;background:var(--accent);color:#08201e;transition:opacity .2s,transform .15s}
+  .btn:active{transform:scale(.98)}
+  .btn.ghost{background:var(--card2);color:var(--text)}
+  .btn.danger{background:transparent;color:var(--bad);border:1px solid rgba(252,129,129,.35)}
+  .btn[disabled]{opacity:.5}
+  .toast{position:fixed;left:50%;top:16px;transform:translate(-50%,calc(-100% - 40px));background:var(--card2);border:1px solid var(--line);padding:10px 16px;border-radius:12px;transition:transform .35s var(--ease);z-index:9;font-size:14px;max-width:90%}
+  .toast.on{transform:translate(-50%,0)}
+  .skel{height:84px;border-radius:var(--radius);margin-bottom:10px;background:linear-gradient(90deg,var(--card) 25%,var(--card2) 50%,var(--card) 75%);background-size:200% 100%;animation:sh 1.2s infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+  .link{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;text-decoration:underline;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>Филамент</h1><div class="sub" id="sub">Загрузка…</div></div>
+  </header>
+  <div class="tabs" id="tabs">
+    <div class="pill"></div>
+    <button class="on" data-t="1">Катушки</button>
+    <button data-t="2">История</button>
+  </div>
+  <div id="view1">
+    <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+  </div>
+  <div id="view2" hidden></div>
+</div>
+
+<button class="fab" id="fab" aria-label="Новая катушка">+</button>
+<div class="veil" id="veil"></div>
+<div class="sheet" id="sheet"><div class="grip"></div><div id="sheetBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY = document.querySelector('meta[name="k"]').content;
+let S = null, showArchived = false;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtG = g => (g >= 1000 ? (g/1000).toFixed(2).replace('.', ',') + ' кг' : Math.round(g) + ' г');
+
+function call(fn, ...args){
+  return new Promise((ok, bad) => google.script.run.withSuccessHandler(ok).withFailureHandler(bad)[fn](KEY, ...args));
+}
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2400);
+}
+function err(e){ toast('Ошибка: ' + (e && e.message || e)); }
+
+async function load(){
+  if (!KEY){ $('#view1').innerHTML = '<div class="empty">Откройте ссылку с ключом: …/exec?k=ВАШ_ТОКЕН</div>'; $('#sub').textContent=''; return; }
+  try { S = await call('getState'); render(); } catch(e){ $('#view1').innerHTML = '<div class="empty">'+esc(e.message||e)+'</div>'; }
+}
+
+function render(){
+  const list = S.spools.filter(s => showArchived ? true : !s.archived);
+  const act = S.spools.find(s => s.active && !s.archived);
+  const total = S.spools.filter(s => !s.archived).reduce((a,s) => a + s.remaining_g, 0);
+  $('#sub').textContent = 'Всего пластика: ' + fmtG(total);
+
+  let h = '';
+  if (act){
+    const C = 2*Math.PI*31, off = C*(1 - act.pct/100);
+    h += `<div class="hero">
+      <svg class="ring" viewBox="0 0 74 74"><circle class="bg" cx="37" cy="37" r="31"/>
+      <circle class="fg" id="ringfg" cx="37" cy="37" r="31" stroke="${esc(act.color)}" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-off="${off}"/></svg>
+      <div class="grow"><div class="label">Сейчас в принтере</div>
+      <div class="name">${esc(act.name)}</div>
+      <b>${fmtG(act.remaining_g)}</b> <span class="meta">${Math.round(act.pct)}%</span></div></div>`;
+  } else if (S.spools.some(s => !s.archived)) {
+    h += `<div class="hero"><div class="grow"><div class="label">Нет активной катушки</div><div class="meta">Нажмите на катушку → «Поставить в принтер», иначе расход не будет списываться.</div></div></div>`;
+  }
+  if (!list.length) h += '<div class="empty">Катушек пока нет.<br>Нажмите «+», чтобы добавить первую.</div>';
+  list.sort((a,b) => (b.active - a.active) || (a.archived - b.archived) || (a.remaining_g - b.remaining_g))
+    .forEach((s, i) => {
+      h += `<div class="card" style="animation-delay:${i*45}ms${s.archived?';opacity:.5':''}" data-id="${esc(s.id)}">
+        <div class="row"><div class="dot" style="background:${esc(s.color)}"></div>
+        <div class="grow"><div class="name">${esc(s.name)}${s.active?'<span class="badge b-act">В ПРИНТЕРЕ</span>':''}${s.low&&!s.archived?'<span class="badge b-low">МАЛО</span>':''}</div>
+        <div class="meta">${esc(s.material)}${s.brand?' · '+esc(s.brand):''}${s.archived?' · архив':''}</div></div>
+        <div class="grams">${fmtG(s.remaining_g)}<small>из ${fmtG(s.initial_g)}</small></div></div>
+        <div class="bar"><i style="background:${esc(s.color)}" data-w="${s.pct.toFixed(1)}"></i></div></div>`;
+    });
+  if (S.spools.some(s => s.archived)) h += `<div class="link" id="arch">${showArchived?'Скрыть архив':'Показать архив'}</div>`;
+  $('#view1').innerHTML = h;
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll('.bar i').forEach(b => b.style.width = b.dataset.w + '%');
+    const r = $('#ringfg'); if (r) r.style.strokeDashoffset = r.dataset.off;
+  }));
+  document.querySelectorAll('.card').forEach(c => c.onclick = () => spoolSheet(c.dataset.id));
+  const a = $('#arch'); if (a) a.onclick = () => { showArchived = !showArchived; render(); };
+
+  const byId = Object.fromEntries(S.spools.map(s => [s.id, s]));
+  let hh = '';
+  if (!S.prints.length) hh = '<div class="empty">Печатей пока нет. Они появятся здесь автоматически после каждой печати.</div>';
+  S.prints.forEach((p, i) => {
+    const sp = byId[p.spool_id];
+    const d = new Date(p.time);
+    const st = p.status === 'done' ? '' : (p.status.indexOf('cancel') === 0 ? '<span class="st-c"> · отменена</span>' : '<span class="st-t"> · ' + esc(p.status) + '</span>');
+    hh += `<div class="hist" style="animation-delay:${Math.min(i,15)*30}ms">
+      <div class="sdot" style="background:${sp?esc(sp.color):'var(--line)'}"></div>
+      <div class="grow"><div class="file">${esc(p.file || 'без имени')}</div>
+      <div class="meta">${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}${sp?' · '+esc(sp.name):''}${st}</div></div>
+      <div class="grams">${p.grams.toFixed(1).replace('.',',')} г<small>${(p.mm/1000).toFixed(1).replace('.',',')} м</small></div></div>`;
+  });
+  $('#view2').innerHTML = hh;
+}
+
+// ---- tabs
+$('#tabs').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const t = b.dataset.t;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  $('#tabs').classList.toggle('t2', t === '2');
+  $('#view1').hidden = t !== '1'; $('#view2').hidden = t !== '2';
+  $('#fab').style.transform = t === '1' ? '' : 'scale(0)';
+};
+
+// ---- bottom sheet
+function openSheet(html){ $('#sheetBody').innerHTML = html; $('#veil').classList.add('on'); $('#sheet').classList.add('on'); }
+function closeSheet(){ $('#veil').classList.remove('on'); $('#sheet').classList.remove('on'); }
+$('#veil').onclick = closeSheet;
+
+async function run(btn, fn, ...args){
+  btn.disabled = true;
+  try { S = await call(fn, ...args); closeSheet(); render(); return true; }
+  catch(e){ err(e); btn.disabled = false; return false; }
+}
+
+$('#fab').onclick = () => {
+  const opts = S ? S.materials.map(m => `<option>${m}</option>`).join('') : '<option>PLA</option>';
+  openSheet(`<h3>Новая катушка</h3>
+    <label>Название</label><input id="f_name" placeholder="Например, PLA голубой">
+    <div class="two"><div><label>Пластик</label><select id="f_mat">${opts}</select></div>
+    <div><label>Цвет</label><input id="f_col" type="color" value="#7fd3e0"></div></div>
+    <div class="two"><div><label>Вес пластика, г</label><input id="f_w" type="number" inputmode="numeric" value="1000"></div>
+    <div><label>Производитель</label><input id="f_brand" placeholder="необязательно"></div></div>
+    <button class="btn" id="f_ok">Добавить</button>`);
+  $('#f_ok').onclick = async () => {
+    const ok = await run($('#f_ok'), 'addSpool', { name: $('#f_name').value, material: $('#f_mat').value, color: $('#f_col').value, initial_g: $('#f_w').value, brand: $('#f_brand').value });
+    if (ok) toast('Катушка добавлена');
+  };
+};
+
+function spoolSheet(id){
+  const s = S.spools.find(x => x.id === id); if (!s) return;
+  openSheet(`<h3>${esc(s.name)}</h3>
+    <div class="meta">${esc(s.material)} · осталось ${fmtG(s.remaining_g)} из ${fmtG(s.initial_g)} · израсходовано ${fmtG(s.used_g)}</div>
+    ${s.archived ? '' : `<button class="btn" id="a_act" ${s.active?'disabled':''}>${s.active?'Уже в принтере':'Поставить в принтер'}</button>`}
+    <label>Взвесили? Вес пластика без пустой катушки, г</label>
+    <div class="two"><div><input id="a_w" type="number" inputmode="numeric" placeholder="${Math.round(s.remaining_g)}"></div>
+    <div style="flex:.6"><button class="btn ghost" id="a_set" style="margin-top:0">Сохранить</button></div></div>
+    ${s.archived ? '' : '<button class="btn danger" id="a_arch">Закончилась — в архив</button>'}`);
+  const act = $('#a_act'); if (act) act.onclick = async () => { if (await run(act, 'setActive', id)) toast('Теперь в принтере: ' + s.name); };
+  $('#a_set').onclick = async () => {
+    const v = $('#a_w').value; if (v === '') return toast('Введите вес');
+    if (await run($('#a_set'), 'setRemaining', id, v)) toast('Остаток обновлён');
+  };
+  const ar = $('#a_arch'); if (ar) ar.onclick = async () => { if (await run(ar, 'archiveSpool', id)) toast('Перенесена в архив'); };
+}
+
+load();
+</script>
+</body>
+</html>
