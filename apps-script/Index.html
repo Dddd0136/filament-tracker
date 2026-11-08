@@ -6,10 +6,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Филамент</title>
+<meta name="theme-color" content="#0f1216">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
     --bg:#0f1216; --card:#181d23; --card2:#1f252d; --line:#2a313a;
-    --text:#e9edf1; --muted:#8b96a3; --accent:#4fd1c5; --warn:#f6ad55; --bad:#fc8181;
+    --text:#e9edf1; --muted:#8b96a3; --accent:#4fd1c5; --warn:#f6ad55; --bad:#fc8181; --good:#68d391;
     --radius:18px; --ease:cubic-bezier(.2,.8,.2,1);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -19,11 +23,13 @@
   header{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 14px}
   h1{font-size:22px;margin:0;letter-spacing:.2px}
   .sub{color:var(--muted);font-size:13px}
+  .gear{border:0;background:var(--card);color:var(--muted);width:42px;height:42px;border-radius:12px;font-size:20px;transition:transform .4s var(--ease)}
+  .gear:active{transform:rotate(90deg)}
+
   .tabs{display:flex;background:var(--card);border-radius:14px;padding:4px;margin-bottom:14px;position:relative}
-  .tabs button{flex:1;border:0;background:none;color:var(--muted);padding:9px;border-radius:10px;font:inherit;font-weight:600;position:relative;z-index:1;transition:color .25s}
+  .tabs button{flex:1;border:0;background:none;color:var(--muted);padding:9px 4px;border-radius:10px;font:inherit;font-weight:600;position:relative;z-index:1;transition:color .25s}
   .tabs button.on{color:var(--text)}
-  .tabs .pill{position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);background:var(--card2);border-radius:10px;transition:transform .35s var(--ease)}
-  .tabs.t2 .pill{transform:translateX(100%)}
+  .tabs .pill{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);background:var(--card2);border-radius:10px;transition:transform .35s var(--ease)}
 
   .hero{background:linear-gradient(135deg,var(--card2),var(--card));border-radius:var(--radius);padding:16px;margin-bottom:14px;display:flex;gap:14px;align-items:center;border:1px solid var(--line)}
   .ring{width:74px;height:74px;flex:none}
@@ -31,41 +37,68 @@
   .ring .bg{stroke:var(--line)}
   .ring .fg{stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset 1.1s var(--ease)}
   .hero b{font-size:20px}
-  .hero .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+  .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
 
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 14px 12px;margin-bottom:10px;
-    opacity:0;transform:translateY(10px);animation:in .45s var(--ease) forwards;cursor:pointer;transition:transform .15s}
-  .card:active{transform:scale(.985)}
+    opacity:0;transform:translateY(10px);animation:in .45s var(--ease) forwards;cursor:pointer}
+  .card:active{filter:brightness(1.15)}
   @keyframes in{to{opacity:1;transform:none}}
   .row{display:flex;align-items:center;gap:12px}
   .dot{width:34px;height:34px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 3px rgba(0,0,0,.25),0 0 0 2px var(--line)}
   .name{font-weight:650}
   .meta{color:var(--muted);font-size:12.5px}
   .grow{flex:1;min-width:0}
-  .grams{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  .grams{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
   .grams small{display:block;color:var(--muted);font-weight:500;font-size:11.5px}
   .bar{height:7px;background:var(--line);border-radius:6px;margin-top:11px;overflow:hidden}
   .bar i{display:block;height:100%;width:0;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);transition:width 1s var(--ease)}
   .badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:2px;letter-spacing:.3px}
   .b-act{background:rgba(79,209,197,.15);color:var(--accent)}
   .b-low{background:rgba(246,173,85,.15);color:var(--warn);animation:pulse 1.6s infinite}
+  .b-can{background:rgba(246,173,85,.15);color:var(--warn)}
+  .b-ok{background:rgba(104,211,145,.15);color:var(--good)}
+  .b-test{background:var(--card2);color:var(--muted)}
   @keyframes pulse{50%{opacity:.55}}
   .empty{color:var(--muted);text-align:center;padding:40px 10px}
 
-  .hist{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 13px;margin-bottom:8px;display:flex;gap:10px;align-items:center;opacity:0;animation:in .35s var(--ease) forwards}
-  .hist .sdot{width:12px;height:12px;border-radius:50%;flex:none}
-  .hist .file{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .st-c{color:var(--warn)} .st-t{color:var(--muted)}
+  .hist{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px;margin-bottom:8px;display:flex;gap:12px;align-items:center;opacity:0;animation:in .35s var(--ease) forwards;cursor:pointer}
+  .hist:active{filter:brightness(1.15)}
+  .thumb{width:54px;height:54px;border-radius:12px;flex:none;background:var(--card2);object-fit:contain;border:1px solid var(--line)}
+  .thumb.ph{display:flex;align-items:center;justify-content:center}
+  .thumb.ph span{width:16px;height:16px;border-radius:50%}
+  .file{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 
-  .fab{position:fixed;right:20px;bottom:calc(22px + env(safe-area-inset-bottom));width:58px;height:58px;border-radius:50%;border:0;background:var(--accent);color:#08201e;font-size:30px;font-weight:300;box-shadow:0 8px 24px rgba(79,209,197,.35);transition:transform .2s var(--ease)}
+  .seg{display:flex;gap:6px;margin-bottom:12px}
+  .seg button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:12px;padding:8px;font:inherit;font-weight:600;transition:all .25s var(--ease)}
+  .seg button.on{background:var(--card2);color:var(--text);border-color:var(--accent)}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;opacity:0;animation:in .4s var(--ease) forwards}
+  .kpi b{display:block;font-size:22px;margin-top:4px;font-variant-numeric:tabular-nums}
+  .kpi .meta{margin-top:2px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;opacity:0;animation:in .45s var(--ease) forwards}
+  .chart{display:flex;align-items:flex-end;gap:5px;height:120px;margin-top:12px}
+  .chart div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .chart i{display:block;width:100%;height:0;border-radius:6px 6px 3px 3px;background:var(--accent);opacity:.85;transition:height .9s var(--ease)}
+  .chart i.z{background:var(--line);height:3px!important}
+  .chart span{font-size:9.5px;color:var(--muted);margin-top:5px;height:12px}
+  .mrow{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:13.5px}
+  .mrow .bar{flex:1;margin:0}
+
+  .fab{position:fixed;right:20px;bottom:calc(22px + env(safe-area-inset-bottom));width:58px;height:58px;border-radius:50%;border:0;background:var(--accent);color:#08201e;font-size:30px;font-weight:300;box-shadow:0 8px 24px rgba(79,209,197,.35);transition:transform .3s var(--ease)}
   .fab:active{transform:scale(.92)}
 
   .veil{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .3s}
   .veil.on{opacity:1;pointer-events:auto}
-  .sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--card);border-radius:22px 22px 0 0;padding:10px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .38s var(--ease);border-top:1px solid var(--line)}
+  .sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;max-height:88vh;overflow-y:auto;margin:0 auto;background:var(--card);border-radius:22px 22px 0 0;padding:10px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .38s var(--ease);border-top:1px solid var(--line)}
   .sheet.on{transform:none}
   .grip{width:40px;height:4px;background:var(--line);border-radius:4px;margin:0 auto 14px}
-  .sheet h3{margin:0 0 12px;font-size:18px}
+  .sheet h3{margin:0 0 6px;font-size:18px;word-break:break-word}
+  .bigimg{display:block;width:100%;max-height:260px;object-fit:contain;background:var(--card2);border-radius:16px;margin:4px 0 12px;border:1px solid var(--line)}
+  .facts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  .fact{background:var(--card2);border-radius:12px;padding:10px 12px}
+  .fact .v{font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
+  .fact .d{font-size:11.5px;color:var(--muted)}
+  .fact.wide{grid-column:1/-1}
   label{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px}
   input,select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px;font:inherit;outline:none;transition:border-color .2s}
   input:focus,select:focus{border-color:var(--accent)}
@@ -81,22 +114,25 @@
   .skel{height:84px;border-radius:var(--radius);margin-bottom:10px;background:linear-gradient(90deg,var(--card) 25%,var(--card2) 50%,var(--card) 75%);background-size:200% 100%;animation:sh 1.2s infinite}
   @keyframes sh{to{background-position:-200% 0}}
   .link{color:var(--muted);font-size:13px;text-align:center;margin-top:8px;text-decoration:underline;cursor:pointer}
+  .view{animation:fade .3s var(--ease)}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div><h1>Филамент</h1><div class="sub" id="sub">Загрузка…</div></div>
+    <button class="gear" id="gear" aria-label="Настройки">⚙</button>
   </header>
   <div class="tabs" id="tabs">
     <div class="pill"></div>
-    <button class="on" data-t="1">Катушки</button>
-    <button data-t="2">История</button>
+    <button class="on" data-t="0">Катушки</button>
+    <button data-t="1">История</button>
+    <button data-t="2">Статистика</button>
   </div>
-  <div id="view1">
-    <div class="skel"></div><div class="skel"></div><div class="skel"></div>
-  </div>
-  <div id="view2" hidden></div>
+  <div id="v0" class="view"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+  <div id="v1" class="view" hidden></div>
+  <div id="v2" class="view" hidden></div>
 </div>
 
 <button class="fab" id="fab" aria-label="Новая катушка">+</button>
@@ -105,15 +141,45 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY = document.querySelector('meta[name="k"]').content;
-let S = null, showArchived = false;
+// ---- connection: GitHub Pages (fetch to Apps Script URL) or built into Apps Script (google.script.run)
+const GAS = !!(window.google && google.script && google.script.run);
+const LS = {
+  get(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } },
+  set(k,v){ try { localStorage.setItem(k, v); } catch(e){} }
+};
+function fromHash(){
+  // setup link: …/#api=https://script.google.com/.../exec&k=TOKEN
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('api') && h.get('k')) { LS.set('api', h.get('api')); LS.set('key', h.get('k')); history.replaceState(null, '', location.pathname); return true; }
+  return false;
+}
+if (!GAS) fromHash();
+const metaK = document.querySelector('meta[name="k"]');
+let API = GAS ? '' : LS.get('api');
+let KEY = GAS ? (metaK ? metaK.content : '') : LS.get('key');
+let S = null, showArchived = false, tab = 0, period = 'month';
 
 const $ = s => document.querySelector(s);
-const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtG = g => (g >= 1000 ? (g/1000).toFixed(2).replace('.', ',') + ' кг' : Math.round(g) + ' г');
+const fmtRub = r => Math.round(r).toLocaleString('ru-RU') + ' ₽';
+const fmtNum = (x, d) => Number(x).toFixed(d).replace('.', ',');
+function fmtDur(s){
+  if (s == null || !isFinite(s)) return '—';
+  s = Math.round(s); const h = Math.floor(s/3600), m = Math.round((s%3600)/60);
+  return h ? `${h} ч ${m} мин` : `${m} мин`;
+}
+const fmtDT = t => { const d = new Date(t); return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}); };
+const niceFile = f => String(f || 'без имени').replace(/\.gcode$/i, '');
 
-function call(fn, ...args){
-  return new Promise((ok, bad) => google.script.run.withSuccessHandler(ok).withFailureHandler(bad)[fn](KEY, ...args));
+async function call(fn, ...args){
+  if (GAS) return new Promise((ok, bad) => google.script.run.withSuccessHandler(ok).withFailureHandler(bad)[fn](KEY, ...args));
+  const u = API + '?action=call&fn=' + encodeURIComponent(fn) + '&k=' + encodeURIComponent(KEY) + '&args=' + encodeURIComponent(JSON.stringify(args)) + '&_=' + Date.now();
+  let r;
+  try { r = await fetch(u, { redirect: 'follow' }); } catch(e){ throw new Error('Нет связи с сервером'); }
+  const d = await r.json().catch(() => { throw new Error('Сервер ответил не JSON — проверьте адрес'); });
+  if (!d.ok) throw new Error(d.error || 'Ошибка сервера');
+  return d.result;
 }
 function toast(msg){
   const t = $('#toast'); t.textContent = msg; t.classList.add('on');
@@ -122,25 +188,38 @@ function toast(msg){
 function err(e){ toast('Ошибка: ' + (e && e.message || e)); }
 
 async function load(){
-  if (!KEY){ $('#view1').innerHTML = '<div class="empty">Откройте ссылку с ключом: …/exec?k=ВАШ_ТОКЕН</div>'; $('#sub').textContent=''; return; }
-  try { S = await call('getState'); render(); } catch(e){ $('#view1').innerHTML = '<div class="empty">'+esc(e.message||e)+'</div>'; }
+  if (!KEY || (!GAS && !API)){
+    $('#v0').innerHTML = '<div class="empty">Приложение ещё не подключено к таблице.<br><br><span class="link" id="cfg0">Открыть настройки</span></div>';
+    $('#sub').textContent = ''; const c = $('#cfg0'); if (c) c.onclick = settings; return;
+  }
+  try { S = await call('getState'); render(); } catch(e){ $('#v0').innerHTML = '<div class="empty">'+esc(e.message||e)+'</div>'; }
 }
 
-function render(){
+function animateIn(root){
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    root.querySelectorAll('[data-w]').forEach(b => b.style.width = b.dataset.w + '%');
+    root.querySelectorAll('[data-h]').forEach(b => b.style.height = b.dataset.h + '%');
+    root.querySelectorAll('[data-off]').forEach(r => r.style.strokeDashoffset = r.dataset.off);
+  }));
+}
+
+function render(){ renderSpools(); renderHistory(); renderStats(); }
+
+// ---------------------------------------------------------------- spools
+function renderSpools(){
   const list = S.spools.filter(s => showArchived ? true : !s.archived);
   const act = S.spools.find(s => s.active && !s.archived);
   const total = S.spools.filter(s => !s.archived).reduce((a,s) => a + s.remaining_g, 0);
   $('#sub').textContent = 'Всего пластика: ' + fmtG(total);
-
   let h = '';
   if (act){
     const C = 2*Math.PI*31, off = C*(1 - act.pct/100);
     h += `<div class="hero">
       <svg class="ring" viewBox="0 0 74 74"><circle class="bg" cx="37" cy="37" r="31"/>
-      <circle class="fg" id="ringfg" cx="37" cy="37" r="31" stroke="${esc(act.color)}" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-off="${off}"/></svg>
+      <circle class="fg" cx="37" cy="37" r="31" stroke="${esc(act.color)}" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-off="${off}"/></svg>
       <div class="grow"><div class="label">Сейчас в принтере</div>
       <div class="name">${esc(act.name)}</div>
-      <b>${fmtG(act.remaining_g)}</b> <span class="meta">${Math.round(act.pct)}%</span></div></div>`;
+      <b>${fmtG(act.remaining_g)}</b> <span class="meta">${Math.round(act.pct)}%${act.price ? ' · ≈ ' + fmtRub(act.remaining_g * act.price / act.initial_g) : ''}</span></div></div>`;
   } else if (S.spools.some(s => !s.archived)) {
     h += `<div class="hero"><div class="grow"><div class="label">Нет активной катушки</div><div class="meta">Нажмите на катушку → «Поставить в принтер», иначе расход не будет списываться.</div></div></div>`;
   }
@@ -150,48 +229,122 @@ function render(){
       h += `<div class="card" style="animation-delay:${i*45}ms${s.archived?';opacity:.5':''}" data-id="${esc(s.id)}">
         <div class="row"><div class="dot" style="background:${esc(s.color)}"></div>
         <div class="grow"><div class="name">${esc(s.name)}${s.active?'<span class="badge b-act">В ПРИНТЕРЕ</span>':''}${s.low&&!s.archived?'<span class="badge b-low">МАЛО</span>':''}</div>
-        <div class="meta">${esc(s.material)}${s.brand?' · '+esc(s.brand):''}${s.archived?' · архив':''}</div></div>
+        <div class="meta">${esc(s.material)}${s.brand?' · '+esc(s.brand):''}${s.price?' · '+fmtRub(s.price):''}${s.archived?' · архив':''}</div></div>
         <div class="grams">${fmtG(s.remaining_g)}<small>из ${fmtG(s.initial_g)}</small></div></div>
         <div class="bar"><i style="background:${esc(s.color)}" data-w="${s.pct.toFixed(1)}"></i></div></div>`;
     });
   if (S.spools.some(s => s.archived)) h += `<div class="link" id="arch">${showArchived?'Скрыть архив':'Показать архив'}</div>`;
-  $('#view1').innerHTML = h;
-
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    document.querySelectorAll('.bar i').forEach(b => b.style.width = b.dataset.w + '%');
-    const r = $('#ringfg'); if (r) r.style.strokeDashoffset = r.dataset.off;
-  }));
-  document.querySelectorAll('.card').forEach(c => c.onclick = () => spoolSheet(c.dataset.id));
-  const a = $('#arch'); if (a) a.onclick = () => { showArchived = !showArchived; render(); };
-
-  const byId = Object.fromEntries(S.spools.map(s => [s.id, s]));
-  let hh = '';
-  if (!S.prints.length) hh = '<div class="empty">Печатей пока нет. Они появятся здесь автоматически после каждой печати.</div>';
-  S.prints.forEach((p, i) => {
-    const sp = byId[p.spool_id];
-    const d = new Date(p.time);
-    const st = p.status === 'done' ? '' : (p.status.indexOf('cancel') === 0 ? '<span class="st-c"> · отменена</span>' : '<span class="st-t"> · ' + esc(p.status) + '</span>');
-    hh += `<div class="hist" style="animation-delay:${Math.min(i,15)*30}ms">
-      <div class="sdot" style="background:${sp?esc(sp.color):'var(--line)'}"></div>
-      <div class="grow"><div class="file">${esc(p.file || 'без имени')}</div>
-      <div class="meta">${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}${sp?' · '+esc(sp.name):''}${st}</div></div>
-      <div class="grams">${p.grams.toFixed(1).replace('.',',')} г<small>${(p.mm/1000).toFixed(1).replace('.',',')} м</small></div></div>`;
-  });
-  $('#view2').innerHTML = hh;
+  const v = $('#v0'); v.innerHTML = h; animateIn(v);
+  v.querySelectorAll('.card').forEach(c => c.onclick = () => spoolSheet(c.dataset.id));
+  const a = $('#arch'); if (a) a.onclick = () => { showArchived = !showArchived; renderSpools(); };
 }
 
-// ---- tabs
+// ---------------------------------------------------------------- history
+function statusBadge(p){
+  if (p.status === 'done') return '<span class="badge b-ok">ГОТОВО</span>';
+  if (p.status.indexOf('cancel') === 0) return '<span class="badge b-can">ОТМЕНЕНА' + (p.progress != null ? ' ' + Math.round(p.progress) + '%' : '') + '</span>';
+  if (p.status === 'test') return '<span class="badge b-test">ТЕСТ</span>';
+  return '<span class="badge b-test">' + esc(p.status) + '</span>';
+}
+function thumbHtml(p, sp, cls){
+  const ph = `<div class="${cls} ph"><span style="background:${sp?esc(sp.color):'var(--line)'}"></span></div>`;
+  if (!p.thumb) return ph;
+  return `<img class="${cls}" src="${esc(p.thumb)}" alt="" loading="lazy" onerror="this.outerHTML=this.dataset.ph" data-ph="${esc(ph)}">`;
+}
+function renderHistory(){
+  const byId = Object.fromEntries(S.spools.map(s => [s.id, s]));
+  let h = '';
+  if (!S.prints.length) h = '<div class="empty">Печатей пока нет. Они появятся здесь автоматически после каждой печати.</div>';
+  S.prints.forEach((p, i) => {
+    const sp = byId[p.spool_id];
+    h += `<div class="hist" style="animation-delay:${Math.min(i,15)*30}ms" data-i="${i}">
+      ${thumbHtml(p, sp, 'thumb')}
+      <div class="grow"><div class="file">${esc(niceFile(p.file))}</div>
+      <div class="meta">${fmtDT(p.time)}${p.print_s?' · '+fmtDur(p.print_s):''}</div>
+      <div class="meta">${statusBadge(p).replace('margin-left:6px','')}${sp?' '+esc(sp.name):''}</div></div>
+      <div class="grams">${fmtNum(p.grams||0,1)} г<small>${p.cost!=null?fmtRub(p.cost):fmtNum((p.mm||0)/1000,1)+' м'}</small></div></div>`;
+  });
+  const v = $('#v1'); v.innerHTML = h;
+  v.querySelectorAll('.hist').forEach(c => c.onclick = () => printSheet(S.prints[+c.dataset.i]));
+}
+function diffPct(fact, est){
+  if (fact == null || !est) return '';
+  const d = (fact - est) / est * 100;
+  return ` <span class="d">(${d >= 0 ? '+' : ''}${Math.round(d)}%)</span>`;
+}
+function printSheet(p){
+  const sp = S.spools.find(s => s.id === p.spool_id);
+  const full = p.status === 'done';
+  const diff = (fact, est) => full ? diffPct(fact, est) : '';
+  const f = (label, val, wide) => val == null || val === '' ? '' : `<div class="fact${wide?' wide':''}"><div class="label">${label}</div><div class="v">${val}</div></div>`;
+  let facts = '';
+  facts += f('Начало', p.start ? fmtDT(p.start) : null);
+  facts += f('Конец', fmtDT(p.time));
+  facts += f('Время печати', p.print_s != null ? fmtDur(p.print_s) + diff(p.print_s, p.est_s) : null);
+  facts += f('Расчёт слайсера', p.est_s ? fmtDur(p.est_s) : null);
+  facts += f('Всего с паузами', p.total_s != null ? fmtDur(p.total_s) : null);
+  facts += f('Стоимость', p.cost != null ? fmtRub(p.cost) : null);
+  facts += f('Пластик', fmtNum(p.grams||0,1) + ' г' + diff(p.grams, p.est_g));
+  facts += f('Расчёт, г', p.est_g ? fmtNum(p.est_g,1) + ' г' : null);
+  facts += f('Пруток, м', fmtNum((p.mm||0)/1000,2) + ' м' + diff(p.mm, p.est_mm));
+  facts += f('Расчёт, м', p.est_mm ? fmtNum(p.est_mm/1000,2) + ' м' : null);
+  facts += f('Катушка', sp ? `<span class="badge" style="background:${esc(sp.color)};margin:0 4px 0 0">&nbsp;</span>${esc(sp.name)}` : null);
+  facts += f('Пруток в профиле', p.fil_type || null);
+  facts += f('Слой', p.layer_h ? fmtNum(p.layer_h,2) + ' мм' : null);
+  facts += f('Высота модели', p.object_h ? fmtNum(p.object_h,1) + ' мм' : null);
+  facts += f('Слоёв', p.layers || null);
+  facts += f('Сопло', p.nozzle_d ? fmtNum(p.nozzle_d,1) + ' мм' : null);
+  facts += f('Температуры', p.nozzle_t ? `сопло ${Math.round(p.nozzle_t)}° · стол ${Math.round(p.bed_t||0)}°` : null, true);
+  facts += f('Слайсер', p.slicer || null, true);
+  const img = p.thumb ? `<img class="bigimg" src="${esc(p.thumb)}" alt="" onerror="this.remove()">` : '';
+  openSheet(`${img}<h3>${esc(niceFile(p.file))}</h3><div>${statusBadge(p)}</div><div class="facts">${facts}</div>`);
+}
+
+// ---------------------------------------------------------------- stats
+function renderStats(){
+  const st = S.stats; if (!st) { $('#v2').innerHTML = ''; return; }
+  const a = st[period];
+  const max = Math.max(1, ...st.days.map(d => d.grams));
+  const mats = Object.entries(st.byMaterial).sort((x,y) => y[1]-x[1]);
+  const mmax = Math.max(1, ...mats.map(m => m[1]));
+  let h = `<div class="seg" id="seg">
+      <button data-p="week" class="${period==='week'?'on':''}">7 дней</button>
+      <button data-p="month" class="${period==='month'?'on':''}">30 дней</button>
+      <button data-p="all" class="${period==='all'?'on':''}">Всё время</button></div>
+    <div class="kpis">
+      <div class="kpi"><div class="label">Печатей</div><b>${a.prints}</b><div class="meta">готово ${a.done} · отменено ${a.cancelled}</div></div>
+      <div class="kpi" style="animation-delay:50ms"><div class="label">Время печати</div><b>${fmtDur(a.seconds)}</b><div class="meta">${a.prints ? 'в среднем ' + fmtDur(a.seconds / a.prints) : '—'}</div></div>
+      <div class="kpi" style="animation-delay:100ms"><div class="label">Пластик</div><b>${fmtG(a.grams)}</b><div class="meta">${a.prints ? 'в среднем ' + fmtG(a.grams / a.prints) : '—'}</div></div>
+      <div class="kpi" style="animation-delay:150ms"><div class="label">Потрачено</div><b>${fmtRub(a.cost)}</b><div class="meta">${a.cost ? '' : 'укажите цены катушек'}</div></div>
+    </div>
+    <div class="panel" style="animation-delay:200ms"><div class="label">Расход за 14 дней, г</div><div class="chart">`;
+  st.days.forEach((d, i) => {
+    const pct = d.grams / max * 100;
+    h += `<div title="${esc(d.label)}: ${fmtNum(d.grams,1)} г"><i class="${d.grams?'':'z'}" data-h="${pct.toFixed(1)}" style="transition-delay:${i*35}ms"></i><span>${i % 2 ? '' : esc(d.label.slice(0,2))}</span></div>`;
+  });
+  h += `</div></div>`;
+  if (mats.length){
+    h += `<div class="panel" style="animation-delay:260ms"><div class="label">По типу пластика, всё время</div>`;
+    mats.forEach(([m, g]) => { h += `<div class="mrow"><div style="width:58px">${esc(m)}</div><div class="bar"><i style="background:var(--accent)" data-w="${(g/mmax*100).toFixed(1)}"></i></div><div class="grams" style="width:64px">${fmtG(g)}</div></div>`; });
+    h += `</div>`;
+  }
+  const v = $('#v2'); v.innerHTML = h; animateIn(v);
+  v.querySelectorAll('#seg button').forEach(b => b.onclick = () => { period = b.dataset.p; renderStats(); });
+}
+
+// ---------------------------------------------------------------- tabs
 $('#tabs').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
-  const t = b.dataset.t;
+  tab = +b.dataset.t;
   document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
-  $('#tabs').classList.toggle('t2', t === '2');
-  $('#view1').hidden = t !== '1'; $('#view2').hidden = t !== '2';
-  $('#fab').style.transform = t === '1' ? '' : 'scale(0)';
+  $('#tabs .pill').style.transform = `translateX(${tab * 100}%)`;
+  [0,1,2].forEach(i => $('#v'+i).hidden = i !== tab);
+  if (S){ if (tab === 2) renderStats(); if (tab === 0) renderSpools(); }
+  $('#fab').style.transform = tab === 0 ? '' : 'scale(0)';
 };
 
-// ---- bottom sheet
-function openSheet(html){ $('#sheetBody').innerHTML = html; $('#veil').classList.add('on'); $('#sheet').classList.add('on'); }
+// ---------------------------------------------------------------- sheets
+function openSheet(html){ $('#sheetBody').innerHTML = html; $('#sheet').scrollTop = 0; $('#veil').classList.add('on'); $('#sheet').classList.add('on'); }
 function closeSheet(){ $('#veil').classList.remove('on'); $('#sheet').classList.remove('on'); }
 $('#veil').onclick = closeSheet;
 
@@ -208,31 +361,56 @@ $('#fab').onclick = () => {
     <div class="two"><div><label>Пластик</label><select id="f_mat">${opts}</select></div>
     <div><label>Цвет</label><input id="f_col" type="color" value="#7fd3e0"></div></div>
     <div class="two"><div><label>Вес пластика, г</label><input id="f_w" type="number" inputmode="numeric" value="1000"></div>
-    <div><label>Производитель</label><input id="f_brand" placeholder="необязательно"></div></div>
+    <div><label>Цена катушки, ₽</label><input id="f_price" type="number" inputmode="numeric" placeholder="необязательно"></div></div>
+    <label>Производитель</label><input id="f_brand" placeholder="необязательно">
     <button class="btn" id="f_ok">Добавить</button>`);
   $('#f_ok').onclick = async () => {
-    const ok = await run($('#f_ok'), 'addSpool', { name: $('#f_name').value, material: $('#f_mat').value, color: $('#f_col').value, initial_g: $('#f_w').value, brand: $('#f_brand').value });
+    const ok = await run($('#f_ok'), 'addSpool', { name: $('#f_name').value, material: $('#f_mat').value, color: $('#f_col').value, initial_g: $('#f_w').value, brand: $('#f_brand').value, price: $('#f_price').value });
     if (ok) toast('Катушка добавлена');
   };
 };
 
 function spoolSheet(id){
   const s = S.spools.find(x => x.id === id); if (!s) return;
+  const prints = S.prints.filter(p => p.spool_id === id);
   openSheet(`<h3>${esc(s.name)}</h3>
-    <div class="meta">${esc(s.material)} · осталось ${fmtG(s.remaining_g)} из ${fmtG(s.initial_g)} · израсходовано ${fmtG(s.used_g)}</div>
+    <div class="meta">${esc(s.material)} · осталось ${fmtG(s.remaining_g)} из ${fmtG(s.initial_g)} · израсходовано ${fmtG(s.used_g)}${prints.length ? ' · печатей: ' + prints.length : ''}</div>
     ${s.archived ? '' : `<button class="btn" id="a_act" ${s.active?'disabled':''}>${s.active?'Уже в принтере':'Поставить в принтер'}</button>`}
     <label>Взвесили? Вес пластика без пустой катушки, г</label>
     <div class="two"><div><input id="a_w" type="number" inputmode="numeric" placeholder="${Math.round(s.remaining_g)}"></div>
     <div style="flex:.6"><button class="btn ghost" id="a_set" style="margin-top:0">Сохранить</button></div></div>
+    <label>Цена катушки, ₽</label>
+    <div class="two"><div><input id="a_p" type="number" inputmode="numeric" value="${s.price || ''}" placeholder="0"></div>
+    <div style="flex:.6"><button class="btn ghost" id="a_price" style="margin-top:0">Сохранить</button></div></div>
     ${s.archived ? '' : '<button class="btn danger" id="a_arch">Закончилась — в архив</button>'}`);
   const act = $('#a_act'); if (act) act.onclick = async () => { if (await run(act, 'setActive', id)) toast('Теперь в принтере: ' + s.name); };
   $('#a_set').onclick = async () => {
     const v = $('#a_w').value; if (v === '') return toast('Введите вес');
     if (await run($('#a_set'), 'setRemaining', id, v)) toast('Остаток обновлён');
   };
+  $('#a_price').onclick = async () => {
+    const v = $('#a_p').value; if (v === '') return toast('Введите цену');
+    if (await run($('#a_price'), 'setPrice', id, v)) toast('Цена сохранена');
+  };
   const ar = $('#a_arch'); if (ar) ar.onclick = async () => { if (await run(ar, 'archiveSpool', id)) toast('Перенесена в архив'); };
 }
 
+function settings(){
+  if (GAS) return toast('Встроенная страница: настройки не нужны');
+  openSheet(`<h3>Подключение</h3>
+    <div class="meta">Адрес веб-приложения Apps Script и токен из функции setup(). Хранятся только на этом телефоне.</div>
+    <label>Адрес (…/exec)</label><input id="s_api" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(API)}">
+    <label>Токен</label><input id="s_key" value="${esc(KEY)}">
+    <button class="btn" id="s_ok">Сохранить</button>`);
+  $('#s_ok').onclick = () => {
+    API = $('#s_api').value.trim(); KEY = $('#s_key').value.trim();
+    LS.set('api', API); LS.set('key', KEY); closeSheet(); load();
+  };
+}
+$('#gear').onclick = settings;
+if (GAS) $('#gear').style.visibility = 'hidden';
+window.addEventListener('hashchange', () => { if (!GAS && fromHash()) { API = LS.get('api'); KEY = LS.get('key'); load(); } });
+if (!GAS && 'serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {})); }
 load();
 </script>
 </body>

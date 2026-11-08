@@ -1,18 +1,28 @@
 #!/usr/bin/env python3
-# Filament tracker: reports filament used by a print to the Google Apps Script web app.
-# Called from Klipper:  RUN_SHELL_COMMAND CMD=spool_report PARAMS="done 1234.5"
+# Filament tracker: reports a finished/cancelled print to the Google Apps Script web app.
+# Called from Klipper:
+#   RUN_SHELL_COMMAND CMD=spool_report PARAMS="done <filament_mm> <print_s> <total_s> <progress 0..1>"
 #   argv[1] = done | cancelled | test | flush
-#   argv[2] = filament used, mm
-# Reports are queued in ~/spool_queue.jsonl and re-sent later if the internet is down.
+#   argv[2] = filament used, mm (printer.print_stats.filament_used)
+#   argv[3..5] = print_duration, total_duration, virtual_sdcard.progress (optional fallbacks)
+# Collected: print times, filament used, progress, slicer metadata (estimates, layer height,
+# temperatures...) and the model thumbnail. Reports are queued in ~/spool_queue.jsonl and
+# re-sent later if the internet is down.
 # Python 3.7 compatible, standard library only. Output is ASCII only (old Klipper).
-import sys, os, json, time, fcntl, urllib.request, urllib.parse
+import sys, os, json, time, fcntl, base64, urllib.request, urllib.parse
 
 HOME = os.path.expanduser('~')
 CONF = os.path.join(HOME, 'klipper_config', 'spool_tracker.conf')
+GCODE_DIR = os.path.join(HOME, 'gcode_files')
 QUEUE = os.path.join(HOME, 'spool_queue.jsonl')
 LOCK = QUEUE + '.lock'
 LOG = os.path.join(HOME, 'klipper_logs', 'spool_tracker.log')
 MOONRAKER = 'http://127.0.0.1:7125'
+META_KEYS = ('estimated_time', 'filament_total', 'filament_weight_total', 'layer_height',
+             'first_layer_height', 'object_height', 'layer_count', 'first_layer_extr_temp',
+             'first_layer_bed_temp', 'nozzle_diameter', 'filament_type', 'filament_name',
+             'slicer', 'slicer_version')
+THUMB_MAX_PX = 400
 
 
 def log(msg):
@@ -38,15 +48,46 @@ def read_conf():
     return c
 
 
-def current_filename():
+def moonraker(path, timeout=3):
+    with urllib.request.urlopen(MOONRAKER + path, timeout=timeout) as r:
+        return json.loads(r.read().decode('utf-8'))['result']
+
+
+def collect(status, mm, extra):
+    now = int(time.time())
+    rec = {'id': '%d-%d' % (int(time.time() * 1000), os.getpid()), 'ts': now,
+           'status': status, 'mm': round(mm, 1), 'file': ''}
+    # values passed by the Klipper macro (used if the query below fails)
+    if len(extra) >= 2:
+        rec['print_s'], rec['total_s'] = round(extra[0]), round(extra[1])
+        rec['start_ts'] = now - rec['total_s'] if rec['total_s'] else None
+    if len(extra) >= 3:
+        rec['progress'] = 100 if status == 'done' else round(extra[2] * 100, 1)
     try:
-        url = MOONRAKER + '/printer/objects/query?print_stats=filename'
-        with urllib.request.urlopen(url, timeout=3) as r:
-            d = json.loads(r.read().decode('utf-8'))
-        return d['result']['status']['print_stats'].get('filename', '') or ''
+        st = moonraker('/printer/objects/query?print_stats&virtual_sdcard')['status']
+        ps, sd = st.get('print_stats', {}), st.get('virtual_sdcard', {})
+        rec['file'] = ps.get('filename', '') or ''
+        rec['print_s'] = round(ps.get('print_duration', 0) or 0)
+        rec['total_s'] = round(ps.get('total_duration', 0) or 0)
+        rec['start_ts'] = now - rec['total_s'] if rec['total_s'] else None
+        rec['progress'] = 100 if status == 'done' else round((sd.get('progress', 0) or 0) * 100, 1)
     except Exception as e:
-        log('moonraker query failed: %s' % e)
-        return ''
+        log('print_stats query failed: %s' % e)
+    if not rec['file']:
+        return rec
+    try:
+        md = moonraker('/server/files/metadata?filename=' + urllib.parse.quote(rec['file']))
+        rec['meta'] = dict((k, md[k]) for k in META_KEYS if md.get(k) not in (None, ''))
+        thumbs = [t for t in (md.get('thumbnails') or []) if t.get('relative_path')]
+        small = [t for t in thumbs if (t.get('width') or 0) <= THUMB_MAX_PX] or thumbs
+        if small:
+            best = max(small, key=lambda t: t.get('width') or 0)
+            path = os.path.join(GCODE_DIR, os.path.dirname(rec['file']), best['relative_path'])
+            with open(path, 'rb') as f:
+                rec['thumb'] = base64.b64encode(f.read()).decode('ascii')
+    except Exception as e:
+        log('metadata/thumbnail not available: %s' % e)
+    return rec
 
 
 class Locked(object):
@@ -67,12 +108,14 @@ def enqueue(rec):
 
 
 def send(url, token, rec):
-    qs = urllib.parse.urlencode({'token': token, 'data': json.dumps(rec, ensure_ascii=False)})
-    with urllib.request.urlopen(url + ('&' if '?' in url else '?') + qs, timeout=25) as r:
-        body = json.loads(r.read().decode('utf-8'))
-    if not body.get('ok'):
-        raise RuntimeError('server: %s' % body.get('error'))
-    return body
+    # POST; Apps Script answers 302 and urllib follows it with GET to fetch the result.
+    body = json.dumps({'token': token, 'data': rec}, ensure_ascii=False).encode('utf-8')
+    req = urllib.request.Request(url, data=body, headers={'Content-Type': 'text/plain;charset=utf-8'})
+    with urllib.request.urlopen(req, timeout=40) as r:
+        res = json.loads(r.read().decode('utf-8'))
+    if not res.get('ok'):
+        raise RuntimeError('server: %s' % res.get('error'))
+    return res
 
 
 def flush():
@@ -92,11 +135,11 @@ def flush():
             try:
                 rec = json.loads(line)
             except ValueError:
-                log('dropped bad line: %r' % line[:80])
+                log('dropped bad line')
                 continue
             try:
-                body = send(url, token, rec)
-                log('sent %s %s mm -> %s' % (rec.get('status'), rec.get('mm'), json.dumps(body, ensure_ascii=True)))
+                res = send(url, token, rec)
+                log('sent %s %s mm -> %s' % (rec.get('status'), rec.get('mm'), json.dumps(res, ensure_ascii=True)))
             except Exception as e:
                 log('send failed (%s), will retry later' % e)
                 keep.append(line)
@@ -132,14 +175,13 @@ def main():
     if mm < 1 and status != 'test':
         log('skip %s: %.1f mm' % (status, mm))
         return
-    rec = {
-        'id': '%d-%d' % (int(time.time() * 1000), os.getpid()),
-        'ts': int(time.time()),
-        'file': current_filename(),
-        'status': status,
-        'mm': round(mm, 1),
-    }
-    enqueue(rec)
+    extra = []
+    for a in sys.argv[3:6]:
+        try:
+            extra.append(float(a))
+        except ValueError:
+            break
+    enqueue(collect(status, mm, extra))
     print('spool_tracker: %s %.0f mm queued' % (status, mm))
     sys.stdout.flush()
     detach_and_flush()
