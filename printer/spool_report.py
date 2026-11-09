@@ -5,9 +5,9 @@
 #   argv[1] = done | cancelled | test | flush
 # Manual use over SSH:
 #   python3 ~/klipper_config/spool_report.py check              - diagnostics
-#   python3 ~/klipper_config/spool_report.py resend <report_id> - re-send the last finished job
-#           to fill new columns (times, slicer data, thumbnail) of an existing row;
-#           the spool is NOT charged again
+#   python3 ~/klipper_config/spool_report.py resend [N]         - fill new columns (times, slicer
+#           data, thumbnail) of the rows of the last N finished jobs (default 5); rows are matched
+#           by file name and end time; spools are NOT charged again
 #   argv[2] = filament used, mm (printer.print_stats.filament_used)
 #   argv[3..5] = print_duration, total_duration, virtual_sdcard.progress (optional fallbacks)
 # Collected: print times, filament used, progress, slicer metadata (estimates, layer height,
@@ -222,28 +222,37 @@ def fmt_dur(s):
     return '%dh%02dm' % (s // 3600, (s % 3600) // 60)
 
 
-def cmd_resend(report_id):
-    jobs = [j for j in last_jobs(10) if j.get('status') in ('completed', 'cancelled')]
-    if not jobs:
-        print('No finished jobs in history')
-        return
-    j = jobs[0]
-    rec = {'id': report_id, 'update': True, 'file': j.get('filename', ''),
+def job_record(j):
+    rec = {'update': True, 'file': j.get('filename', ''),
+           'match_ts': int(j.get('end_time') or 0),
            'status': 'done' if j.get('status') == 'completed' else 'cancelled',
            'mm': round(j.get('filament_used') or 0, 1),
            'start_ts': int(j.get('start_time') or 0) or None,
-           'print_s': round(j.get('print_duration') or 0), 'total_s': round(j.get('total_duration') or 0),
-           'progress': 100 if j.get('status') == 'completed' else None}
+           'print_s': round(j.get('print_duration') or 0), 'total_s': round(j.get('total_duration') or 0)}
+    if j.get('status') == 'completed':
+        rec['progress'] = 100
     add_metadata(rec)
+    return rec
+
+
+def cmd_resend(count):
+    # Fill new columns (times, slicer data, thumbnail) of rows already in the sheet.
+    # Rows are matched by file name and end time; spools are NOT charged again.
     c = read_conf()
-    print('Job: %s, %s, %.1f m, thumbnail: %s, slicer data: %s' % (
-        rec['file'], j.get('status'), rec['mm'] / 1000.0, 'yes' if rec.get('thumb') else 'no',
-        'yes' if rec.get('meta') else 'no (%s)' % rec.get('meta_error', '')))
-    try:
-        res = send(c.get('url', ''), c.get('token', ''), rec)
-        print('Server: %s' % json.dumps(res))
-    except Exception as e:
-        print('ERROR: %s' % e)
+    jobs = [j for j in last_jobs(max(count * 3, 10))
+            if j.get('status') in ('completed', 'cancelled') and (j.get('filament_used') or 0) >= 1][:count]
+    if not jobs:
+        print('No finished jobs in history')
+        return
+    for j in jobs:
+        rec = job_record(j)
+        when = time.strftime('%Y-%m-%d %H:%M', time.localtime(rec['match_ts']))
+        try:
+            res = send(c.get('url', ''), c.get('token', ''), rec)
+            msg = 'updated row %s, thumbnail %s' % (res.get('row'), 'yes' if res.get('thumb') else 'no')
+        except Exception as e:
+            msg = 'not updated: %s' % e
+        print('%s  %-9s %6.1f m  %s  ->  %s' % (when, j.get('status'), rec['mm'] / 1000.0, rec['file'], msg))
 
 
 def main():
@@ -252,10 +261,11 @@ def main():
         cmd_check()
         return
     if status == 'resend':
-        if len(sys.argv) < 3:
-            print('usage: spool_report.py resend <report_id from the sheet>')
-            return
-        cmd_resend(sys.argv[2])
+        try:
+            n = int(sys.argv[2]) if len(sys.argv) > 2 else 5
+        except ValueError:
+            n = 5
+        cmd_resend(n)
         return
     if status == 'flush':
         detach_and_flush()

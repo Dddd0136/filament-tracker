@@ -174,6 +174,20 @@ function logPrint_(token, d) {
   try {
     const ss = ss_();
     const pr = ss.getSheetByName(PRINTS);
+    // дополнение записи по имени файла и времени окончания (resend без номера)
+    if (d.update && d.match_ts) {
+      if (pr.getLastRow() < 2) throw new Error('Печать не найдена');
+      const rows = pr.getRange(2, 1, pr.getLastRow() - 1, PRINT_HEAD.length).getValues();
+      const ts = Number(d.match_ts) * 1000;
+      let best = -1, bestDt = 15 * 60 * 1000; // окно поиска: 15 минут
+      rows.forEach((r, i) => {
+        if (String(r[PC.file]) !== String(d.file)) return;
+        const dt = Math.abs(new Date(r[PC.time]).getTime() - ts);
+        if (dt < bestDt) { bestDt = dt; best = i; }
+      });
+      if (best < 0) throw new Error('Печать не найдена');
+      return enrichRow_(ss, pr, best + 2, d);
+    }
     // повторная отправка из очереди принтера — не считать дважды
     if (d.id && pr.getLastRow() > 1) {
       const ids = pr.getRange(2, PC.report_id + 1, pr.getLastRow() - 1, 1).getValues().flat().map(String);
