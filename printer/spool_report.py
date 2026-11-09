@@ -3,6 +3,11 @@
 # Called from Klipper:
 #   RUN_SHELL_COMMAND CMD=spool_report PARAMS="done <filament_mm> <print_s> <total_s> <progress 0..1>"
 #   argv[1] = done | cancelled | test | flush
+# Manual use over SSH:
+#   python3 ~/klipper_config/spool_report.py check              - diagnostics
+#   python3 ~/klipper_config/spool_report.py resend <report_id> - re-send the last finished job
+#           to fill new columns (times, slicer data, thumbnail) of an existing row;
+#           the spool is NOT charged again
 #   argv[2] = filament used, mm (printer.print_stats.filament_used)
 #   argv[3..5] = print_duration, total_duration, virtual_sdcard.progress (optional fallbacks)
 # Collected: print times, filament used, progress, slicer metadata (estimates, layer height,
@@ -73,8 +78,12 @@ def collect(status, mm, extra):
         rec['progress'] = 100 if status == 'done' else round((sd.get('progress', 0) or 0) * 100, 1)
     except Exception as e:
         log('print_stats query failed: %s' % e)
-    if not rec['file']:
-        return rec
+    if rec['file']:
+        add_metadata(rec)
+    return rec
+
+
+def add_metadata(rec):
     try:
         md = moonraker('/server/files/metadata?filename=' + urllib.parse.quote(rec['file']))
         rec['meta'] = dict((k, md[k]) for k in META_KEYS if md.get(k) not in (None, ''))
@@ -87,7 +96,7 @@ def collect(status, mm, extra):
                 rec['thumb'] = base64.b64encode(f.read()).decode('ascii')
     except Exception as e:
         log('metadata/thumbnail not available: %s' % e)
-    return rec
+        rec['meta_error'] = str(e)
 
 
 class Locked(object):
@@ -163,8 +172,91 @@ def detach_and_flush():
         os._exit(0)
 
 
+def last_jobs(n=5):
+    return moonraker('/server/history/list?limit=%d&order=desc' % n, timeout=5).get('jobs', [])
+
+
+def cmd_check():
+    import subprocess
+    print('Printer time : %s' % time.strftime('%Y-%m-%d %H:%M:%S %Z'))
+    try:
+        out = subprocess.check_output(['chronyc', 'tracking'], stderr=subprocess.STDOUT).decode()
+        print('chrony       : ' + ' | '.join(l.strip() for l in out.splitlines() if l.startswith(('Reference', 'System time', 'Leap'))))
+    except Exception as e:
+        print('chrony       : NOT available (%s)' % e)
+    c = read_conf()
+    print('Config       : url %s, token %s' % ('OK' if c.get('url', '').startswith('https://') else 'MISSING',
+                                               'OK' if c.get('token') else 'MISSING'))
+    try:
+        with open(QUEUE) as f:
+            q = [l for l in f if l.strip()]
+    except FileNotFoundError:
+        q = []
+    print('Queue        : %d report(s) waiting' % len(q))
+    print('Last jobs (printer clock):')
+    try:
+        for j in last_jobs(3):
+            rec = {'file': j.get('filename', '')}
+            add_metadata(rec)
+            m = rec.get('meta', {})
+            print('  %s  %-9s %6.1f m  print %s  est %s  thumb %s  %s' % (
+                time.strftime('%Y-%m-%d %H:%M', time.localtime(j.get('end_time') or j.get('start_time') or 0)),
+                j.get('status'), (j.get('filament_used') or 0) / 1000.0,
+                fmt_dur(j.get('print_duration')), fmt_dur(m.get('estimated_time')),
+                'yes' if rec.get('thumb') else 'no', j.get('filename')))
+    except Exception as e:
+        print('  history not available: %s' % e)
+    print('Last log lines:')
+    try:
+        with open(LOG) as f:
+            for l in f.readlines()[-5:]:
+                print('  ' + l.rstrip()[:160])
+    except FileNotFoundError:
+        print('  (no log yet)')
+
+
+def fmt_dur(s):
+    if not s:
+        return '-'
+    s = int(s)
+    return '%dh%02dm' % (s // 3600, (s % 3600) // 60)
+
+
+def cmd_resend(report_id):
+    jobs = [j for j in last_jobs(10) if j.get('status') in ('completed', 'cancelled')]
+    if not jobs:
+        print('No finished jobs in history')
+        return
+    j = jobs[0]
+    rec = {'id': report_id, 'update': True, 'file': j.get('filename', ''),
+           'status': 'done' if j.get('status') == 'completed' else 'cancelled',
+           'mm': round(j.get('filament_used') or 0, 1),
+           'start_ts': int(j.get('start_time') or 0) or None,
+           'print_s': round(j.get('print_duration') or 0), 'total_s': round(j.get('total_duration') or 0),
+           'progress': 100 if j.get('status') == 'completed' else None}
+    add_metadata(rec)
+    c = read_conf()
+    print('Job: %s, %s, %.1f m, thumbnail: %s, slicer data: %s' % (
+        rec['file'], j.get('status'), rec['mm'] / 1000.0, 'yes' if rec.get('thumb') else 'no',
+        'yes' if rec.get('meta') else 'no (%s)' % rec.get('meta_error', '')))
+    try:
+        res = send(c.get('url', ''), c.get('token', ''), rec)
+        print('Server: %s' % json.dumps(res))
+    except Exception as e:
+        print('ERROR: %s' % e)
+
+
 def main():
     status = sys.argv[1] if len(sys.argv) > 1 else 'done'
+    if status == 'check':
+        cmd_check()
+        return
+    if status == 'resend':
+        if len(sys.argv) < 3:
+            print('usage: spool_report.py resend <report_id from the sheet>')
+            return
+        cmd_resend(sys.argv[2])
+        return
     if status == 'flush':
         detach_and_flush()
         return

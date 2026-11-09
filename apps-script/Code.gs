@@ -177,7 +177,9 @@ function logPrint_(token, d) {
     // повторная отправка из очереди принтера — не считать дважды
     if (d.id && pr.getLastRow() > 1) {
       const ids = pr.getRange(2, PC.report_id + 1, pr.getLastRow() - 1, 1).getValues().flat().map(String);
-      if (ids.indexOf(String(d.id)) >= 0) return { ok: true, dup: true };
+      const at = ids.indexOf(String(d.id));
+      if (at >= 0) return d.update ? enrichRow_(ss, pr, at + 2, d) : { ok: true, dup: true };
+      if (d.update) throw new Error('Печать с номером ' + d.id + ' не найдена');
     }
     const spools = readSpools_();
     const sp = spools.find(s => s.active && !s.archived);
@@ -229,6 +231,42 @@ function logPrint_(token, d) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/** Дополнить уже записанную печать (повторная отправка): граммы и катушку не трогает. */
+function enrichRow_(ss, pr, rowNum, d) {
+  const meta = d.meta || {};
+  const row = pr.getRange(rowNum, 1, 1, PRINT_HEAD.length).getValues()[0];
+  const set = (k, v) => { if (v !== '' && v !== null && v !== undefined) row[PC[k]] = v; };
+  if (d.start_ts) set('start', new Date(Number(d.start_ts) * 1000));
+  set('print_s', num_(d.print_s));
+  set('total_s', num_(d.total_s));
+  if (d.progress !== undefined) set('progress', num_(d.progress));
+  set('est_s', num_(meta.estimated_time));
+  set('est_mm', num_(meta.filament_total));
+  set('est_g', num_(meta.filament_weight_total));
+  set('layer_h', num_(meta.layer_height));
+  set('object_h', num_(meta.object_height));
+  set('layers', num_(meta.layer_count));
+  set('nozzle_t', num_(meta.first_layer_extr_temp));
+  set('bed_t', num_(meta.first_layer_bed_temp));
+  set('nozzle_d', num_(meta.nozzle_diameter));
+  set('fil_type', meta.filament_type || '');
+  set('slicer', [meta.slicer, meta.slicer_version].filter(Boolean).join(' '));
+  if (d.thumb && !row[PC.thumb_id]) {
+    try {
+      const name = String(row[PC.file] || 'model').replace(/\.gcode$/i, '') + ' ' + d.id + '.png';
+      const f = thumbFolder_().createFile(Utilities.newBlob(Utilities.base64Decode(d.thumb), 'image/png', name));
+      f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      row[PC.thumb_id] = f.getId();
+    } catch (e) {}
+  }
+  const sp = readSpools_().find(s => s.id === String(row[PC.spool_id]));
+  if (sp && sp.price > 0 && sp.initial_g > 0 && row[PC.cost] === '') {
+    row[PC.cost] = Math.round(Number(row[PC.grams]) * sp.price / sp.initial_g * 100) / 100;
+  }
+  pr.getRange(rowNum, 1, 1, PRINT_HEAD.length).setValues([row]);
+  return { ok: true, updated: true, row: rowNum, thumb: !!row[PC.thumb_id] };
 }
 
 // ---------------------------------------------------------------- page API
